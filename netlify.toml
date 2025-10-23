@@ -28,3 +28,9 @@
     Pragma = "no-cache"
     Expires = "0"
 
+[[redirects]]
+  from = "https://www.trueselfgiveback.com/*"
+  to = "https://trueselfgiveback.com/:splat"
+  status = 301
+  force = true
+

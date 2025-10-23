@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://trueself.co.za/sitemap.xml
+Sitemap: https://trueselfgiveback.com/sitemap.xml
 
