@@ -158,6 +158,76 @@ nav a:hover {
     line-height: 1.8;
 }
 
+/* Rules page specific styles */
+.rules-content {
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.rules-content h1 {
+    text-align: center;
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.rules-content h2 {
+    font-size: 2rem;
+    color: white;
+    margin: 2rem 0 1rem 0;
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: 0.5rem;
+}
+
+.rules-content h3 {
+    font-size: 1.4rem;
+    color: var(--secondary);
+    margin: 1.5rem 0 0.8rem 0;
+}
+
+.rules-content p {
+    text-align: left;
+    color: #e0e0e0;
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+}
+
+.rules-content ul {
+    color: #e0e0e0;
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin: 1rem 0;
+    padding-left: 2rem;
+}
+
+.rules-content li {
+    margin-bottom: 0.5rem;
+}
+
+.rules-content strong {
+    color: var(--secondary);
+    font-weight: 600;
+}
+
+.rules-content .highlight-box {
+    background: rgba(106, 53, 255, 0.1);
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.rules-content .highlight-box p {
+    margin-bottom: 0.5rem;
+}
+
+.rules-content .highlight-box strong {
+    color: var(--secondary);
+    font-size: 1.2rem;
+}
+
 .steps {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
