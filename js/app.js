@@ -177,62 +177,188 @@ function showError(fieldId, message) {
 }
 
 // Prepare PayFast submission
-function preparePayFastSubmission() {
+async function preparePayFastSubmission() {
     const name = document.getElementById('name').value.trim();
     const email = document.getElementById('email').value.trim();
     const phone = document.getElementById('phone').value.trim();
+    const social = document.getElementById('social').value.trim();
+    const caption = document.getElementById('caption').value.trim();
+    const selfieFile = selfieInput.files[0];
     
-    // Generate unique payment ID
-    const paymentId = `TS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    if (!selfieFile) {
+        showError('selfie', 'Please upload your selfie');
+        return;
+    }
     
-    // Set PayFast hidden fields
-    document.getElementById('payfast-email').value = email;
-    document.getElementById('payment-id').value = paymentId;
-    document.getElementById('participant-name').value = name;
+    // Show loading state
+    const submitButton = document.querySelector('.payfast-button');
+    const originalButtonText = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Uploading selfie...';
     
-    // Store entry data temporarily (in a real app, you'd send to your server)
-    const entryData = {
-        id: paymentId,
-        name,
-        email,
-        phone,
-        timestamp: new Date().toISOString()
-    };
-    
-    localStorage.setItem('currentEntry', JSON.stringify(entryData));
-    
-    // Submit to PayFast
-    payfastForm.submit();
+    try {
+        // Step 1: Upload selfie image
+        const formData = new FormData();
+        formData.append('selfie', selfieFile);
+        
+        const uploadResponse = await fetch(API_ENDPOINTS.upload, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            throw new Error(errorData.error || 'Failed to upload selfie');
+        }
+        
+        const uploadData = await uploadResponse.json();
+        const selfieUrl = uploadData.url || uploadData.selfie_url;
+        
+        if (!selfieUrl) {
+            throw new Error('Server did not return image URL');
+        }
+        
+        // Step 2: Generate unique payment ID
+        const paymentId = `TS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        
+        // Step 3: Create entry in database (before payment)
+        // Note: API expects 'instagram' not 'social_media', and requires 'age'
+        // Note: payment_id is needed for PayFast IPN handler to match entries
+        const entryData = {
+            name: name,
+            email: email,
+            phone: phone,
+            instagram: social || null, // API uses 'instagram' field
+            selfie_url: selfieUrl,
+            age: 18, // Default age - API requires this field (13-120)
+            payment_id: paymentId // Required for PayFast IPN to match entries
+        };
+        
+        const entryResponse = await fetch(API_ENDPOINTS.entries, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(entryData)
+        });
+        
+        if (!entryResponse.ok) {
+            const errorData = await entryResponse.json();
+            throw new Error(errorData.error || 'Failed to create entry');
+        }
+        
+        // Step 4: Set PayFast hidden fields
+        document.getElementById('payfast-email').value = email;
+        document.getElementById('payment-id').value = paymentId;
+        document.getElementById('participant-name').value = name;
+        
+        // Build the payload we will submit (must exactly match fields sent)
+        const amountRaw = (document.querySelector('#payfast-form [name="amount"]').value || '70').toString();
+        const amount = (Number(amountRaw)).toFixed(2);
+        document.querySelector('#payfast-form [name="amount"]').value = amount;
+
+        const form = document.getElementById('payfast-form');
+        const data = {
+            merchant_id: form.querySelector('[name="merchant_id"]').value,
+            merchant_key: form.querySelector('[name="merchant_key"]').value,
+            return_url: form.querySelector('[name="return_url"]').value,
+            cancel_url: form.querySelector('[name="cancel_url"]').value,
+            notify_url: form.querySelector('[name="notify_url"]').value,
+            m_payment_id: form.querySelector('[name="m_payment_id"]').value,
+            amount: form.querySelector('[name="amount"]').value,
+            item_name: form.querySelector('[name="item_name"]').value,
+            email_address: form.querySelector('[name="email_address"]').value,
+            name_first: form.querySelector('[name="name_first"]').value
+        };
+
+        // Create signature (no passphrase in browser; if you add one, calculate on server)
+        const signatureBase = Object.keys(data)
+            .sort()
+            .map(k => `${k}=${encodeURIComponent(data[k])}`)
+            .join('&');
+
+        const passphrase = ''; // Leave blank here; if you enable a passphrase, move hashing server-side
+        const stringToHash = passphrase ? `${signatureBase}&passphrase=${encodeURIComponent(passphrase)}` : signatureBase;
+        const signature = md5(stringToHash);
+
+        // Ensure signature input exists and set it
+        let sigInput = form.querySelector('input[name="signature"]');
+        if (!sigInput) {
+            sigInput = document.createElement('input');
+            sigInput.type = 'hidden';
+            sigInput.name = 'signature';
+            form.appendChild(sigInput);
+        }
+        sigInput.value = signature;
+
+        // Store entry data temporarily for return page
+        localStorage.setItem('currentEntry', JSON.stringify({
+            id: paymentId,
+            name,
+            email,
+            phone,
+            timestamp: new Date().toISOString()
+        }));
+        
+        // Submit to PayFast
+        payfastForm.submit();
+        
+    } catch (error) {
+        console.error('Error preparing submission:', error);
+        alert('Error: ' + error.message + '\n\nPlease try again or contact support.');
+        submitButton.disabled = false;
+        submitButton.textContent = originalButtonText;
+    }
 }
 
-// Animate stats on load
-function animateStats() {
+// Fetch and animate stats from API
+async function animateStats() {
     const entriesElement = document.getElementById('entries-count');
     const fundsElement = document.getElementById('funds-raised');
     
+    try {
+        // Fetch real stats from API
+        const response = await fetch(API_ENDPOINTS.stats);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                const targetEntries = data.completed_entries || 0;
+                const targetFunds = data.total_funds_raised || 0;
+                
+                // Animate to real values
+                animateValue(entriesElement, 0, targetEntries, (val) => val.toLocaleString());
+                animateValue(fundsElement, 0, targetFunds, (val) => `R${val.toLocaleString()}`);
+                return;
+            }
+        }
+    } catch (error) {
+        console.warn('Could not fetch stats from API, using fallback values:', error);
+    }
+    
+    // Fallback to default values if API fails
     const targetEntries = 1427;
     const targetFunds = 99890;
     
-    let currentEntries = 0;
-    let currentFunds = 0;
+    animateValue(entriesElement, 0, targetEntries, (val) => val.toLocaleString());
+    animateValue(fundsElement, 0, targetFunds, (val) => `R${val.toLocaleString()}`);
+}
+
+// Helper function to animate numeric values
+function animateValue(element, start, end, formatter) {
+    const duration = 2000; // 2 seconds
+    const steps = 100;
+    const increment = (end - start) / steps;
+    const stepDuration = duration / steps;
     
-    const entriesInterval = setInterval(() => {
-        currentEntries += Math.ceil(targetEntries / 100);
-        if(currentEntries >= targetEntries) {
-            currentEntries = targetEntries;
-            clearInterval(entriesInterval);
+    let current = start;
+    const interval = setInterval(() => {
+        current += increment;
+        if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+            current = end;
+            clearInterval(interval);
         }
-        entriesElement.textContent = currentEntries.toLocaleString();
-    }, 20);
-    
-    const fundsInterval = setInterval(() => {
-        currentFunds += Math.ceil(targetFunds / 100);
-        if(currentFunds >= targetFunds) {
-            currentFunds = targetFunds;
-            clearInterval(fundsInterval);
-        }
-        fundsElement.textContent = `R${currentFunds.toLocaleString()}`;
-    }, 20);
+        element.textContent = formatter(Math.floor(current));
+    }, stepDuration);
 }
 
 // Initialize on load
