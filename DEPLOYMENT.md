@@ -40,3 +40,14 @@ py -3 server.py
 - `css/`, `js/`, `images/` – static assets
 - `server.py` – local only
 
+
+
+
+
+
+
+
+
+
+
+
