@@ -1,7 +1,8 @@
 // API Configuration
-// Update this URL to point to your DirectAdmin server where the PHP APIs are hosted
-// Example: 'https://trueselfgiveback.com/api' or 'https://yourdomain.com/api'
-const API_BASE_URL = 'https://trueselfgiveback.com/api';
+// Use relative path when deployed on same domain as API
+// For DirectAdmin deployment: use '/api' (relative path)
+// For Netlify deployment: use 'https://trueselfgiveback.com/api' (absolute URL)
+const API_BASE_URL = '/api'; // Relative path - works when site and API are on same domain
 
 // API Endpoints
 // Try direct .php access first (rewrite rules may not be active)
