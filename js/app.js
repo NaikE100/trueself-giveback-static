@@ -198,20 +198,39 @@ async function preparePayFastSubmission() {
     
     try {
         // Step 1: Upload selfie image
+        // Note: API accepts 'file', 'image', or 'selfie' - using 'selfie' for clarity
         const formData = new FormData();
         formData.append('selfie', selfieFile);
+        // Also try 'file' as fallback if 'selfie' doesn't work
+        // formData.append('file', selfieFile);
         
         const uploadResponse = await fetch(API_ENDPOINTS.upload, {
             method: 'POST',
             body: formData
         });
         
-        if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json();
-            throw new Error(errorData.error || 'Failed to upload selfie');
+        // Check if response is actually JSON
+        const contentType = uploadResponse.headers.get('content-type');
+        const responseText = await uploadResponse.text();
+        
+        if (!contentType || !contentType.includes('application/json')) {
+            // Server returned HTML or other non-JSON response
+            console.error('API returned non-JSON response:', responseText.substring(0, 200));
+            throw new Error(`API error: Server returned ${uploadResponse.status} ${uploadResponse.statusText}. Please check that the upload endpoint exists at ${API_ENDPOINTS.upload}`);
         }
         
-        const uploadData = await uploadResponse.json();
+        let uploadData;
+        try {
+            uploadData = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Failed to parse JSON:', responseText.substring(0, 200));
+            throw new Error('Server returned invalid JSON. Please check the API endpoint.');
+        }
+        
+        if (!uploadResponse.ok) {
+            throw new Error(uploadData.error || `Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+        }
+        
         const selfieUrl = uploadData.url || uploadData.selfie_url;
         
         if (!selfieUrl) {
@@ -242,9 +261,25 @@ async function preparePayFastSubmission() {
             body: JSON.stringify(entryData)
         });
         
+        // Check if response is JSON
+        const entryContentType = entryResponse.headers.get('content-type');
+        const entryResponseText = await entryResponse.text();
+        
+        if (!entryContentType || !entryContentType.includes('application/json')) {
+            console.error('Entries API returned non-JSON:', entryResponseText.substring(0, 200));
+            throw new Error(`API error: Server returned ${entryResponse.status}. Please check that the entries endpoint exists at ${API_ENDPOINTS.entries}`);
+        }
+        
+        let entryResponseData;
+        try {
+            entryResponseData = JSON.parse(entryResponseText);
+        } catch (e) {
+            console.error('Failed to parse entries JSON:', entryResponseText.substring(0, 200));
+            throw new Error('Server returned invalid JSON for entry creation.');
+        }
+        
         if (!entryResponse.ok) {
-            const errorData = await entryResponse.json();
-            throw new Error(errorData.error || 'Failed to create entry');
+            throw new Error(entryResponseData.error || 'Failed to create entry');
         }
         
         // Step 4: Set PayFast hidden fields
@@ -361,9 +396,26 @@ function animateValue(element, start, end, formatter) {
     }, stepDuration);
 }
 
+// Test API connection on load (for debugging)
+async function testAPIConnection() {
+    try {
+        const response = await fetch(API_ENDPOINTS.stats);
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            console.log('✅ API connection successful');
+        } else {
+            console.warn('⚠️ API returned non-JSON response. Check API URL:', API_BASE_URL);
+        }
+    } catch (error) {
+        console.error('❌ API connection failed:', error);
+        console.error('API URL:', API_BASE_URL);
+    }
+}
+
 // Initialize on load
 window.addEventListener('load', () => {
     animateStats();
+    testAPIConnection(); // Test API on page load
     
     // Smooth scrolling for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
