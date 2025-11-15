@@ -5,8 +5,13 @@ Deploy all files from the Netlify site to DirectAdmin. This will solve the 404 A
 
 ## Files to Upload
 
+### ⚠️ IMPORTANT: Correct File Location
+**DO NOT use the root `index.html`** - that's for "Tammy's Shades of Curls"!
+
 ### Source Location
-All files are in: `TrueSelf-GiveBack/TrueSelf-GiveBack/`
+All TrueSelf files are in: `TrueSelf-GiveBack/TrueSelf-GiveBack/`
+
+**NOT in:** `index.html` (root) - that's the wrong file!
 
 ### Upload to DirectAdmin
 Upload to: `/domains/trueselfgiveback.com/public_html/`
